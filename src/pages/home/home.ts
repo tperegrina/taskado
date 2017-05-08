@@ -1,63 +1,194 @@
-import {Component, NgZone, AfterViewInit, ElementRef} from '@angular/core';
-import { NavController } from 'ionic-angular';
+import {Component, OnDestroy} from '@angular/core';
+import {NavController,ModalController} from 'ionic-angular';
+import {Subscription} from 'rxjs';
+import {TaskListModal} from '../../components/task-list-modal/task-list-modal';
+import {ConfirmDeleteModal} from '../../components/confirm-delete-modal/confirm-delete-modal';
+import {TaskModal} from '../../components/task-modal/task-modal';
+import {ProfileStoreProvider} from '../../providers/profile-store-provider';
+import {AuthenticationStoreProvider} from '../../providers/authentication-store-provider';
+import {GoogleTasksProvider} from '../../providers/google-tasks-provider';
+import {Profile} from '@models/Profile'
+import {TasklistResponse} from '@models/TasklistResponse'
 
 @Component({
   selector: 'page-home',
   templateUrl: 'home.html'
 })
-export class HomePage implements AfterViewInit{
+export class HomePage implements OnDestroy {
+  public userProfile: Profile;
+  public isUserLoggedIn: boolean;
+  private subscription: Subscription;
+  private taskListSubscription: Subscription;
+  private loggedInSubscription: Subscription;
+  public tasklists: TasklistResponse;
 
-  private clientId:string = '427259731791-l4behia2q4icckm6msffuj5p7u92hrv3.apps.googleusercontent.com';
+  constructor(public navCtrl: NavController, public modalCtrl: ModalController,
+              private profileStore: ProfileStoreProvider, private googleTasks: GoogleTasksProvider,
+              private authenticationStore: AuthenticationStoreProvider) {
 
-  private scope = [
-    'profile',
-    'https://www.googleapis.com/auth/tasks'
-  ].join(' ');
+    this.subscription = this.profileStore.getProfile().subscribe(
+      (profile) => {
+        this.userProfile = profile;
 
-  public auth2: any;
+      }
+    );
 
-  constructor(public navCtrl: NavController, private _zone: NgZone, private element: ElementRef) {
-    console.log(this);
-    console.log('ElementRef: ', this.element);
+    this.loggedInSubscription = this.authenticationStore.isLoggedIn().subscribe(
+      (isLoggedIn) => {
+        this.isUserLoggedIn = isLoggedIn;
+        //As soon as user is logged in we fetch the Tasks
+        this.updateTaskLists();
+      }
+    );
+
+  }
+  // Fetches Tasklists and tasks  associated with each tasklist
+  private updateTaskLists() {
+    this.taskListSubscription = this.googleTasks.listTaskLists().subscribe(
+      (tasklists) => {
+        this.tasklists = tasklists;
+        // When we have a TasklistResponse we need to do 2 things
+        for (let _i = 0; _i < tasklists.items.length; _i++ ) {
+          // 1- Initialize the dropdownFunctionality
+          tasklists.items[_i].showDropdown = false;
+          // 2 - Fetch the tasks associated with each tasklist
+          this.googleTasks.listTasks(tasklists.items[_i].id).subscribe(
+            (tasks) => {
+              this.tasklists.items[_i].tasks = tasks;
+
+            })
+        }
+      })
   }
 
-  public googleInit() {
-    gapi.load('auth2', () => {
-      this.auth2 = gapi.auth2.init({
-        client_id: this.clientId,
-        cookie_policy: 'single_host_origin',
-        scope: this.scope
-      });
-      this.attachSignin(this.element.nativeElement.firstChild);
+  // Update tasklist to show or hide the tasks accordion
+  public toggleDropdown(tasklist) {
+    if (tasklist.showDropdown) {
+      tasklist.showDropdown = false;
+    } else {
+      tasklist.showDropdown = true;
+    }
+  }
+
+  //Tasklist Actions
+  public getTasklists() {
+    this.updateTaskLists();
+  }
+
+  public createTaskList() {
+    let taskListModal = this.modalCtrl.create(TaskListModal);
+    taskListModal.onDidDismiss(data => {
+      if(data) {
+        this.taskListSubscription = this.googleTasks.insertTaskList(data.title).subscribe(
+          (response) => {
+            console.log(response);
+          },
+          (error) => {
+            // TODO show error message
+          },
+          () => {
+            this.updateTaskLists();
+          })
+      }
     });
+    taskListModal.present();
   }
 
-  public attachSignin(element) {
-    this.auth2.attachClickHandler(element, {},
-      (googleUser) => {
-        let profile = googleUser.getBasicProfile();
-        console.log('Token || ' + googleUser.getAuthResponse().id_token);
-        console.log('ID: ' + profile.getId());
-        // ...
-      }, function (error) {
-        console.log(JSON.stringify(error, undefined, 2));
-      });
-  }
-
-  ngAfterViewInit() {
-    this.googleInit();
-  }
-
-  // Triggered after a user successfully logs in using the Google external
-  // login provider.
-/*  onGoogleLoginSuccess = (loggedInUser) => {
-    this._zone.run(() => {
-      this.userAuthToken = loggedInUser.getAuthResponse().id_token;
-      this.userDisplayName = loggedInUser.getBasicProfile().getName();
+  public deleteTaskList(id:string) {
+    let deleteTaskListModal = this.modalCtrl.create(ConfirmDeleteModal, {},  {cssClass: 'deleteModal'});
+    deleteTaskListModal.onDidDismiss((accepted: boolean) => {
+      if (accepted) {
+        this.googleTasks.deleteTaskList(id).subscribe(
+          (response) => {
+            console.log(response);
+          },
+          (error) => {
+            // TODO show error message
+          },
+          () => {
+            this.updateTaskLists();
+          }
+        )
+      }
     });
-  }*/
+    deleteTaskListModal.present();
+  }
 
+  public editTaskList(tasklist) {
+    let updateTasklistModal = this.modalCtrl.create(TaskListModal, {tasklist: tasklist});
+      updateTasklistModal.onDidDismiss((data) => {
+        if(data) {
+          this.googleTasks.updateTaskList(data).subscribe(
+            (response) => {
+              console.log(response);
+            },
+            (error) => {
+              // TODO show error message
+            },
+            () => {
+              this.updateTaskLists();
+            })
+        }
+      });
+      updateTasklistModal.present();
+  }
 
+  //Task actions, note that we dont have a getTask implementation, that is done by updateTasklists
+  public createTask(taskListId) {
+    let createTaskModal = this.modalCtrl.create(TaskModal);
+    createTaskModal.onDidDismiss(task => {
+      if(task) {
+        this.googleTasks.insertTask(task, taskListId).subscribe(
+          (response) => {
+            console.log(response);
+          },
+          (error) => {
+            // TODO show error message
+          },
+          () => {
+            this.updateTaskLists();
+          })
+      }
+    })
+    createTaskModal.present();
+  }
 
+  public editTask(task) {
+    let updateTasklistModal = this.modalCtrl.create(TaskModal, {task: task});
+    updateTasklistModal.onDidDismiss((data) => {
+      if(data) {
+        this.googleTasks.updateTask(data).subscribe(
+          (response) => {
+            console.log(response);
+          },
+          (error) => {
+            // TODO show error message
+          },
+          () => {
+            this.updateTaskLists();
+          })
+      }
+    });
+    updateTasklistModal.present();
+  }
+
+  public deleteTask(selfUrl:string) {
+    this.googleTasks.deleteTask(selfUrl).subscribe(
+      (response) => {
+        console.log(response);
+      },
+      (error) => {
+        // TODO show error message
+      },
+      () => {
+        this.updateTaskLists();
+      }
+    )
+  }
+
+  ngOnDestroy() {
+    this.subscription.unsubscribe();
+    this.taskListSubscription.unsubscribe();
+  }
 
 }

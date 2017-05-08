@@ -1,16 +1,91 @@
 <ion-header>
-  <ion-navbar>
-    <ion-title>
-      Ionic Blank
+  <ion-navbar color="primary">
+    <ion-title text-center>
+      Taskado:
+      <strong *ngIf="userProfile">
+          {{userProfile.name}} - {{userProfile.email}}
+      </strong>
     </ion-title>
+
   </ion-navbar>
 </ion-header>
 
 <ion-content padding>
 
-  <o-auth-button></o-auth-button>
-  The world is your oyster.
-  <p>
-    If you get lost, the <a href="http://ionicframework.com/docs/v2">docs</a> will be your guide.
-  </p>
+
+
+  <ion-grid fixed>
+    <ion-row>
+      <ion-col text-center *ngIf="!isUserLoggedIn">
+        <o-auth-button></o-auth-button>
+      </ion-col>
+    </ion-row>
+    <ion-row>
+      <ion-col align-self-start>
+        <ion-list *ngIf="tasklists" >
+          <div *ngFor="let tasklist of tasklists.items" margin-bottom>
+            <ion-item >
+              <button ion-button item-left icon-only (click)="toggleDropdown(tasklist)" color="primary" clear>
+                <ion-icon *ngIf="!tasklist.showDropdown" name="arrow-dropdown" >
+                </ion-icon>
+                <ion-icon *ngIf="tasklist.showDropdown" name="arrow-dropup" >
+                </ion-icon>
+              </button>
+              <h1 ion-text color="dark" margin-left>{{tasklist.title}}</h1>
+              <ion-buttons item-right>
+                <button ion-button icon-only (click)="editTaskList(tasklist)" color="primary" clear>
+                  <ion-icon name="create" >
+                  </ion-icon>
+                </button>
+                <button ion-button icon-only (click)="deleteTaskList(tasklist.id)" color="danger" clear>
+                  <ion-icon name="trash" >
+                  </ion-icon>
+                </button>
+              </ion-buttons>
+            </ion-item>
+
+            <ion-list *ngIf="tasklist.showDropdown" padding>
+              <ion-item *ngFor="let task of tasklist.tasks.items" margin-vertical text-wrap>
+                <ion-label col>
+                  <h1 ion-text color="dark" margin-left>{{task.title}} </h1>
+                </ion-label>
+                <div item-content col>
+                  <p ion-text color="dark">{{task.notes}}</p>
+                </div>
+                <ion-buttons item-right>
+                  <button ion-button icon-only (click)="editTask(task)" color="primary" clear>
+                    <ion-icon name="create" >
+                    </ion-icon>
+                  </button>
+                  <button ion-button icon-only (click)="deleteTask(task.selfLink)" color="danger" clear>
+                    <ion-icon name="trash" >
+                    </ion-icon>
+                  </button>
+                </ion-buttons>
+              </ion-item>
+              <ion-buttons>
+                <button ion-button full large icon-left (click)="createTask(tasklist.id)" color="primary">
+                  <ion-icon  name="add" ></ion-icon>
+                  Add Task
+                </button>
+              </ion-buttons>
+            </ion-list>
+          </div>
+          <ion-buttons>
+            <button ion-button full large icon-left (click)="createTaskList()" color="primary">
+              <ion-icon  name="add" ></ion-icon>
+              Add Tasklist
+            </button>
+          </ion-buttons>
+        </ion-list>
+
+      </ion-col>
+    </ion-row>
+  </ion-grid>
+
+
+  <ion-buttons>
+    <button (click)="getTasklists()">Get Tasks</button>
+  </ion-buttons>
+
 </ion-content>

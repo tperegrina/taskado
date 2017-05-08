@@ -1,0 +1,17 @@
+.deleteModal {
+  .modal-wrapper {
+    background: white;
+    position: absolute;
+    top: calc(50% - (200px/2));
+    left: calc(50% - (600px/2));
+    width: 600px;
+    height: 200px;
+  }
+  .list-header-md {
+    border: 0;
+  }
+
+}
+
+
+

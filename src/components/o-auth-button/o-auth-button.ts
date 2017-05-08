@@ -1,10 +1,9 @@
-import { Component, ElementRef } from '@angular/core';
+import { Component, ElementRef, NgZone } from '@angular/core';
+import { ProfileStoreProvider } from '../../providers/profile-store-provider';
+import { AuthenticationStoreProvider } from '../../providers/authentication-store-provider';
 
 /**
- * Generated class for the OAuthButton component.
- *
- * See https://angular.io/docs/ts/latest/api/core/index/ComponentMetadata-class.html
- * for more info on Angular Components.
+ * Hanldes Authentication with Google
  */
 @Component({
   selector: 'o-auth-button',
@@ -15,17 +14,17 @@ export class OAuthButton {
   private clientId:string = '427259731791-l4behia2q4icckm6msffuj5p7u92hrv3.apps.googleusercontent.com';
 
   private scope = [
-    'profile',
     'https://www.googleapis.com/auth/tasks'
   ].join(' ');
 
-  public auth2: any;
+  private auth2: any;
 
-  constructor(private element: ElementRef) {
-    console.log(this);
-    console.log('ElementRef: ', this.element);
+  constructor(private element: ElementRef, private profileStore: ProfileStoreProvider,
+              private authenticationStore:AuthenticationStoreProvider, private _zone: NgZone) {
+
   }
 
+  //Loads auth2 Module enabling user sign in
   public googleInit() {
     gapi.load('auth2', () => {
       this.auth2 = gapi.auth2.init({
@@ -33,17 +32,26 @@ export class OAuthButton {
         cookie_policy: 'single_host_origin',
         scope: this.scope
       });
-      this.attachSignin(this.element.nativeElement.firstChild);
+      this.attachSignIn(this.element.nativeElement.firstChild);
     });
   }
 
-  public attachSignin(element) {
+  // attaches signIn handler to oauthbutton element, requires ngZone to update angular
+  // TODO: Implement silent signIn for users that are already authenticated
+  public attachSignIn(element) {
+    let profileData = {};
     this.auth2.attachClickHandler(element, {},
       (googleUser) => {
-        let profile = googleUser.getBasicProfile();
-        console.log('Token || ' + googleUser.getAuthResponse().id_token);
-        console.log('ID: ' + profile.getId());
-        // ...
+        this._zone.run(() => {
+          let profile = googleUser.getBasicProfile();
+          profileData = {
+            name: profile.getName(),
+            email: profile.getEmail()
+          };
+          this.authenticationStore.setAuthToken(googleUser.getAuthResponse().access_token);
+          this.profileStore.setProfile(profileData);
+        });
+
       }, function (error) {
         console.log(JSON.stringify(error, undefined, 2));
       });

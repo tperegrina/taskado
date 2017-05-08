@@ -1,0 +1,22 @@
+<ion-grid fixed>
+  <ion-row>
+    <ion-col>
+      <form (ngSubmit)="dismiss()">
+        <ion-list>
+          <ion-list-header text-center *ngIf="tasklist.id">
+            <h1>Edit Task List</h1>
+          </ion-list-header>
+          <ion-list-header text-center *ngIf="!tasklist.id">
+            <h1>Create New Task List</h1>
+          </ion-list-header>
+          <ion-item>
+            <ion-label color="primary" floating>Name</ion-label>
+            <ion-input  [(ngModel)]="tasklist.title" name="label"></ion-input>
+          </ion-item>
+          <button ion-button type="submit" block large>Confirm</button>
+        </ion-list>
+      </form>
+    </ion-col>
+  </ion-row>
+</ion-grid>
+
