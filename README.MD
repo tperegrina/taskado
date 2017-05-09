@@ -1,10 +1,15 @@
-**TASKINATOR**
+**Taskado**
+
+[![Stories in Ready](https://badge.waffle.io/tperegrina/taskado.svg?label=ready&title=Ready)](http://waffle.io/tperegrina/taskado)
+
 
 A simple task organizer implementing Google Task API
 
 **Installation**
 
 `npm install -g ionic cordova`
+
+`npm install`
 
 **Development**
 
